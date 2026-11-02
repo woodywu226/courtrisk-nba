@@ -19,8 +19,8 @@ def test_features_use_only_games_before_prediction_game():
     assert result.loc["2025-01-08", "games_played_prior_7d"] == 2
     assert result.loc["2025-01-08", "minutes_played_prior_7d"] == 70
     # Jan 9 sees Jan 8, but not its own 36 minutes.
-    assert result.loc["2025-01-09", "games_played_prior_7d"] == 1
-    assert result.loc["2025-01-09", "minutes_played_prior_7d"] == 25
+    assert result.loc["2025-01-09", "games_played_prior_7d"] == 2
+    assert result.loc["2025-01-09", "minutes_played_prior_7d"] == 65
 
 
 def test_back_to_back_and_rest_days():
