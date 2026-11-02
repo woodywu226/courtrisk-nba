@@ -75,7 +75,7 @@ def build_workload_features(
         result[f"minutes_played_prior_{window}d"] = 0.0
 
     for _, player_rows in result.groupby("player_id", sort=False, dropna=False):
-        dates = player_rows["_workload_date"].to_numpy(dtype="datetime64[ns]")
+        dates = pd.DatetimeIndex(player_rows["_workload_date"])
         minutes = player_rows["_workload_minutes"].to_numpy(dtype=float)
         row_indices = player_rows.index.to_list()
 
