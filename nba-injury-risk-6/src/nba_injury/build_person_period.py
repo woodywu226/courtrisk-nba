@@ -215,38 +215,52 @@ def build_player_season_rows(pid: int, season: str, adv: dict) -> list[dict]:
         games_by_week[_iso_week_start(g["date"])].append(g)
 
     rows = []
-    cum_min = 0.0       # cumulative season minutes up to & including this week
-    cum_games = 0
     for w in weeks:
         wk_games = games_by_week.get(w, [])
         wk_min = sum(g["min"] for g in wk_games)
         wk_n = len(wk_games)
 
-        # games-in-7-days = games this week (the week IS a 7-day bucket)
-        games_in_7 = wk_n
-        # back-to-backs within the week: consecutive calendar days
-        b2b = 0
-        days = sorted(g["date"] for g in wk_games)
-        for i in range(1, len(days)):
-            if (days[i] - days[i - 1]).days == 1:
-                b2b += 1
-
-        cum_min += wk_min
-        cum_games += wk_n
-
-        rows.append({
+        # Prediction is made at the start of week W. Only games strictly before
+        # Monday W are eligible; current-week minutes are never predictors.
+        prior_games = [g for g in games if g["date"] < w]
+        prior_days = sorted(g["date"] for g in prior_games)
+        row = {
             "player_id": pid,
             "season": season,
             "week_start": w,
             "games_this_week": wk_n,
             "minutes_this_week": wk_min,
-            "back_to_backs_this_week": b2b,
-            "games_in_7days": games_in_7,
-            "cum_season_minutes": cum_min,     # through this week (causal)
-            "cum_season_games": cum_games,
+            "back_to_backs_this_week": sum(
+                1 for i in range(1, len(sorted(g["date"] for g in wk_games)))
+                if (sorted(g["date"] for g in wk_games)[i]
+                    - sorted(g["date"] for g in wk_games)[i - 1]).days == 1
+            ),
+            "games_in_7days": wk_n,
+            "cum_season_minutes": sum(g["min"] for g in prior_games),
+            "cum_season_games": len(prior_games),
             "usg_pct": adv.get("usg_pct"),
             "pace": adv.get("pace"),
-        })
+        }
+        for window in (7, 14, 30):
+            window_games = [
+                g for g in prior_games
+                if w - timedelta(days=window) <= g["date"] < w
+            ]
+            row[f"games_prior_{window}d"] = len(window_games)
+            row[f"minutes_prior_{window}d"] = sum(g["min"] for g in window_games)
+
+        row["days_since_last_game"] = (
+            (w - prior_days[-1]).days if prior_days else None
+        )
+        prior_7_days = [
+            g for g in prior_games if w - timedelta(days=7) <= g["date"] < w
+        ]
+        prior_7_dates = sorted(g["date"] for g in prior_7_days)
+        row["back_to_backs_prior_7d"] = sum(
+            1 for i in range(1, len(prior_7_dates))
+            if (prior_7_dates[i] - prior_7_dates[i - 1]).days == 1
+        )
+        rows.append(row)
     return rows
 
 
