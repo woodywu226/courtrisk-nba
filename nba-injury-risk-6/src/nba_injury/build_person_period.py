@@ -236,8 +236,8 @@ def build_player_season_rows(pid: int, season: str, adv: dict) -> list[dict]:
                     - sorted(g["date"] for g in wk_games)[i - 1]).days == 1
             ),
             "games_in_7days": wk_n,
-            "cum_season_minutes": sum(g["min"] for g in prior_games),
-            "cum_season_games": len(prior_games),
+            "cum_season_minutes": sum(g["min"] for g in prior_games) + wk_min,
+            "cum_season_games": len(prior_games) + wk_n,
             "usg_pct": adv.get("usg_pct"),
             "pace": adv.get("pace"),
         }
