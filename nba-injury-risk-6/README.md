@@ -92,6 +92,26 @@ constant-hazard and age+minutes baselines.
 Walkthrough: `notebooks/stage4_hazard_model.ipynb`.
 Write-up template: `reports/stage4_interim_report.md`.
 
+### Workload / fatigue-risk ablation
+
+Stage 3 also computes pre-week workload features: minutes and games in the prior
+7/14/30 days, days since the last game, and back-to-back pairs in the prior
+seven days. These are calculated strictly before Monday `week_start`; current
+week minutes are excluded from the new experiment.
+
+Rebuild the person-period table after updating Stage 3, then run Stage 4:
+
+```bash
+PYTHONPATH=src python -m nba_injury.build_person_period
+PYTHONPATH=src python -m nba_injury.model_hazard --report-json reports/stage4_metrics.json
+```
+
+The report includes a controlled logistic-regression comparison between a
+prior-30-day exposure baseline and an expanded workload model, using the same
+temporal holdout and reporting AUPRC, ROC-AUC, Brier score, and calibration.
+See `docs/WORKLOAD_FEATURES.md` for definitions and interpretation limits.
+
+
 ## Stage 5 — validation gauntlet (hindsight-bias guard)
 
 After Stage 4, with `person_period.parquet` in place:
