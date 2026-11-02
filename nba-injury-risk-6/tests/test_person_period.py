@@ -68,6 +68,34 @@ def test_cumulative_minutes_are_causal():
     assert cum[-1] == 60                   # total adds up
 
 
+
+def test_workload_features_are_strictly_pre_week():
+    games = [
+        {"date": date(2020, 1, 5), "min": 15, "pts": 0, "reb": 0, "fta": 0},
+        {"date": date(2020, 1, 6), "min": 20, "pts": 0, "reb": 0, "fta": 0},
+        {"date": date(2020, 1, 7), "min": 30, "pts": 0, "reb": 0, "fta": 0},
+        {"date": date(2020, 1, 13), "min": 40, "pts": 0, "reb": 0, "fta": 0},
+    ]
+    orig = bpp._load_games
+    bpp._load_games = lambda pid, season: games
+    try:
+        out = bpp.build_player_season_rows(1, "2019-20", {})
+    finally:
+        bpp._load_games = orig
+
+    jan13 = next(row for row in out if row["week_start"] == date(2020, 1, 13))
+    assert jan13["games_prior_7d"] == 2
+    assert jan13["minutes_prior_7d"] == 50
+    assert jan13["games_prior_14d"] == 2
+    assert jan13["minutes_prior_14d"] == 50
+    assert jan13["days_since_last_game"] == 6
+    assert jan13["back_to_backs_prior_7d"] == 2
+    # Legacy cumulative feature retains its through-week meaning.
+    assert jan13["cum_season_minutes"] == 105
+    # New prior-window features exclude the 40 minutes from prediction week.
+
+
+
 def _tiny_world():
     """A 1-player table built directly to test event/censor attach logic."""
     games_rows = [

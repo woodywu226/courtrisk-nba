@@ -19,8 +19,9 @@ Core design decisions (logged in DECISIONS.md):
   - Weekly grid = ISO-week buckets, ACTIVE roster weeks only (a player's first
     game week through their last game week within each season). No off-season
     rows; no rows before debut / after a season's last game.
-  - NO LEAKAGE: every feature for week W uses only games in weeks <= W. Rolling
-    load (games-in-7-days, cumulative minutes) is computed strictly causally.
+  - New workload-ablation features are computed strictly before Monday
+    week_start. Legacy within-week summaries remain for downstream compatibility
+    and must not be interpreted as available at the start of the prediction week.
   - EVENT: a player-week gets event=1 if a time-loss injury episode BEGAN in
     that week (episode start_date falls in the week). After an event begins, the
     player exits the risk set until they return (recovery weeks are not at-risk
@@ -215,38 +216,55 @@ def build_player_season_rows(pid: int, season: str, adv: dict) -> list[dict]:
         games_by_week[_iso_week_start(g["date"])].append(g)
 
     rows = []
-    cum_min = 0.0       # cumulative season minutes up to & including this week
-    cum_games = 0
     for w in weeks:
         wk_games = games_by_week.get(w, [])
         wk_min = sum(g["min"] for g in wk_games)
         wk_n = len(wk_games)
 
-        # games-in-7-days = games this week (the week IS a 7-day bucket)
-        games_in_7 = wk_n
-        # back-to-backs within the week: consecutive calendar days
-        b2b = 0
-        days = sorted(g["date"] for g in wk_games)
-        for i in range(1, len(days)):
-            if (days[i] - days[i - 1]).days == 1:
-                b2b += 1
-
-        cum_min += wk_min
-        cum_games += wk_n
-
-        rows.append({
+        # Prediction is made at the start of week W. Only games strictly before
+        # Monday W are eligible; current-week minutes are never predictors.
+        prior_games = [g for g in games if g["date"] < w]
+        prior_days = sorted(g["date"] for g in prior_games)
+        week_days = sorted(g["date"] for g in wk_games)
+        row = {
             "player_id": pid,
             "season": season,
             "week_start": w,
             "games_this_week": wk_n,
             "minutes_this_week": wk_min,
-            "back_to_backs_this_week": b2b,
-            "games_in_7days": games_in_7,
-            "cum_season_minutes": cum_min,     # through this week (causal)
-            "cum_season_games": cum_games,
+            "back_to_backs_this_week": sum(
+                1 for i in range(1, len(week_days))
+                if (week_days[i] - week_days[i - 1]).days == 1
+            ),
+            "games_in_7days": wk_n,
+            "cum_season_minutes": sum(g["min"] for g in prior_games) + wk_min,
+            "cum_season_games": len(prior_games) + wk_n,
             "usg_pct": adv.get("usg_pct"),
             "pace": adv.get("pace"),
-        })
+        }
+        for window in (7, 14, 30):
+            window_games = [
+                g for g in prior_games
+                if w - timedelta(days=window) <= g["date"] < w
+            ]
+            row[f"games_prior_{window}d"] = len(window_games)
+            row[f"minutes_prior_{window}d"] = sum(g["min"] for g in window_games)
+
+        row["days_since_last_game"] = (
+            (w - prior_days[-1]).days if prior_days else None
+        )
+        # Include one extra look-back day so a B2B pair is counted when its
+        # second game falls on the first day of the seven-day window.
+        prior_8_days = [
+            g for g in prior_games if w - timedelta(days=8) <= g["date"] < w
+        ]
+        prior_8_dates = sorted(g["date"] for g in prior_8_days)
+        row["back_to_backs_prior_7d"] = sum(
+            1 for i in range(1, len(prior_8_dates))
+            if prior_8_dates[i] >= w - timedelta(days=7)
+            and (prior_8_dates[i] - prior_8_dates[i - 1]).days == 1
+        )
+        rows.append(row)
     return rows
 
 

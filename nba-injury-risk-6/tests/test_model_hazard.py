@@ -39,6 +39,14 @@ def _toy_table(n_per_season=40):
                 "cum_season_games": rng.integers(1, 30),
                 "usg_pct": rng.uniform(0.1, 0.3), "pace": rng.uniform(95, 104),
                 "prior_injury_count": rng.integers(0, 3),
+                "minutes_prior_7d": minutes * 0.8,
+                "games_prior_7d": rng.integers(0, 5),
+                "minutes_prior_14d": minutes * 1.4,
+                "games_prior_14d": rng.integers(0, 8),
+                "minutes_prior_30d": minutes * 2.5,
+                "games_prior_30d": rng.integers(0, 15),
+                "days_since_last_game": rng.integers(1, 8),
+                "back_to_backs_prior_7d": rng.integers(0, 3),
                 "trk_speed_distance": rng.uniform(1, 50),
                 "trk_drives": rng.uniform(1, 50),
                 # partially missing (like real Tier-2 coverage), not 100% NaN
@@ -84,3 +92,19 @@ def test_metrics_are_finite_when_events_present():
         _, m, _ = mh.fit_logistic(train, test)
         assert 0.0 <= m.auc_pr <= 1.0
         assert 0.0 <= m.brier <= 1.0
+
+
+
+def test_workload_comparison_uses_same_temporal_holdout():
+    df = _toy_table(n_per_season=80)
+    train, test, _, test_seasons = mh.temporal_split(df, n_test_seasons=3)
+    result = mh.workload_comparison(train, test)
+
+    assert result["models"][0]["model"] == "workload_baseline_30d"
+    assert result["models"][1]["model"] == "workload_enhanced"
+    assert result["models"][0]["n_test"] == len(test)
+    assert result["models"][1]["n_test"] == len(test)
+    assert result["models"][0]["test_pos_rate"] == result["models"][1]["test_pos_rate"]
+    assert "days_since_last_game" in result["enhanced_features"]
+    assert "minutes_prior_30d" in result["baseline_features"]
+    assert set(test_seasons).isdisjoint(set(mh.temporal_split(df)[2]))
