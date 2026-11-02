@@ -56,6 +56,12 @@ TIER2_FEATURES = [
 # The "simple honest baseline" feature set the full model must beat.
 MINIMAL_FEATURES = ["cum_season_minutes", "games_in_7days"]
 
+WORKLOAD_BASELINE_FEATURES = ["minutes_prior_30d", "games_prior_30d", "prior_injury_count"]
+WORKLOAD_ENHANCED_FEATURES = WORKLOAD_BASELINE_FEATURES + [
+    "minutes_prior_7d", "games_prior_7d", "minutes_prior_14d",
+    "games_prior_14d", "days_since_last_game", "back_to_backs_prior_7d",
+]
+
 TARGET = "event"
 
 
@@ -188,6 +194,51 @@ def fit_minimal_baseline(train, test):
     return clf, _eval("minimal_baseline", yte, p, ytr), (yte, p)
 
 
+
+def fit_feature_logistic(train, test, features, model_name):
+    """Fit an unweighted logistic model on a specified feature set."""
+    from sklearn.pipeline import make_pipeline
+    from sklearn.impute import SimpleImputer
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.linear_model import LogisticRegression
+
+    missing = sorted(set(features) - set(train.columns))
+    if missing:
+        raise ValueError(
+            "Workload features are missing. Rebuild Stage 3 person-period data; "
+            f"missing columns: {missing}"
+        )
+    Xtr, ytr = _xy(train, features)
+    Xte, yte = _xy(test, features)
+    clf = make_pipeline(
+        SimpleImputer(strategy="median"),
+        StandardScaler(),
+        LogisticRegression(max_iter=2000, random_state=0),
+    )
+    clf.fit(Xtr, ytr)
+    p = clf.predict_proba(Xte)[:, 1]
+    return clf, _eval(model_name, yte, p, ytr), (yte, p)
+
+
+def workload_comparison(train, test):
+    """Compare a prior-30d baseline with expanded pre-week workload features."""
+    _, base_m, base_pred = fit_feature_logistic(
+        train, test, WORKLOAD_BASELINE_FEATURES, "workload_baseline_30d"
+    )
+    _, full_m, full_pred = fit_feature_logistic(
+        train, test, WORKLOAD_ENHANCED_FEATURES, "workload_enhanced"
+    )
+    return {
+        "baseline_features": WORKLOAD_BASELINE_FEATURES,
+        "enhanced_features": WORKLOAD_ENHANCED_FEATURES,
+        "models": [asdict(base_m), asdict(full_m)],
+        "calibration": {
+            "workload_baseline_30d": calibration_points(*base_pred),
+            "workload_enhanced": calibration_points(*full_pred),
+        },
+    }
+
+
 def calibration_points(y_true, p, n_bins=10):
     from sklearn.calibration import calibration_curve
     try:
@@ -224,6 +275,7 @@ def run(report_json: str | None = None) -> dict:
             "logistic_tier1": calibration_points(*lr_pred),
             "hgb_tier1_2": calibration_points(*hgb_pred),
         },
+        "workload_comparison": workload_comparison(train, test),
     }
 
     # console summary
