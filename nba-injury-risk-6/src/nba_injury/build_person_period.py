@@ -253,13 +253,16 @@ def build_player_season_rows(pid: int, season: str, adv: dict) -> list[dict]:
         row["days_since_last_game"] = (
             (w - prior_days[-1]).days if prior_days else None
         )
-        prior_7_days = [
-            g for g in prior_games if w - timedelta(days=7) <= g["date"] < w
+        # Include one extra look-back day so a B2B pair is counted when its
+        # second game falls on the first day of the seven-day window.
+        prior_8_days = [
+            g for g in prior_games if w - timedelta(days=8) <= g["date"] < w
         ]
-        prior_7_dates = sorted(g["date"] for g in prior_7_days)
+        prior_8_dates = sorted(g["date"] for g in prior_8_days)
         row["back_to_backs_prior_7d"] = sum(
-            1 for i in range(1, len(prior_7_dates))
-            if (prior_7_dates[i] - prior_7_dates[i - 1]).days == 1
+            1 for i in range(1, len(prior_8_dates))
+            if prior_8_dates[i] >= w - timedelta(days=7)
+            and (prior_8_dates[i] - prior_8_dates[i - 1]).days == 1
         )
         rows.append(row)
     return rows
