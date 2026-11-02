@@ -19,8 +19,9 @@ Core design decisions (logged in DECISIONS.md):
   - Weekly grid = ISO-week buckets, ACTIVE roster weeks only (a player's first
     game week through their last game week within each season). No off-season
     rows; no rows before debut / after a season's last game.
-  - NO LEAKAGE: every feature for week W uses only games in weeks <= W. Rolling
-    load (games-in-7-days, cumulative minutes) is computed strictly causally.
+  - New workload-ablation features are computed strictly before Monday
+    week_start. Legacy within-week summaries remain for downstream compatibility
+    and must not be interpreted as available at the start of the prediction week.
   - EVENT: a player-week gets event=1 if a time-loss injury episode BEGAN in
     that week (episode start_date falls in the week). After an event begins, the
     player exits the risk set until they return (recovery weeks are not at-risk
@@ -224,6 +225,7 @@ def build_player_season_rows(pid: int, season: str, adv: dict) -> list[dict]:
         # Monday W are eligible; current-week minutes are never predictors.
         prior_games = [g for g in games if g["date"] < w]
         prior_days = sorted(g["date"] for g in prior_games)
+        week_days = sorted(g["date"] for g in wk_games)
         row = {
             "player_id": pid,
             "season": season,
@@ -231,9 +233,8 @@ def build_player_season_rows(pid: int, season: str, adv: dict) -> list[dict]:
             "games_this_week": wk_n,
             "minutes_this_week": wk_min,
             "back_to_backs_this_week": sum(
-                1 for i in range(1, len(sorted(g["date"] for g in wk_games)))
-                if (sorted(g["date"] for g in wk_games)[i]
-                    - sorted(g["date"] for g in wk_games)[i - 1]).days == 1
+                1 for i in range(1, len(week_days))
+                if (week_days[i] - week_days[i - 1]).days == 1
             ),
             "games_in_7days": wk_n,
             "cum_season_minutes": sum(g["min"] for g in prior_games) + wk_min,
