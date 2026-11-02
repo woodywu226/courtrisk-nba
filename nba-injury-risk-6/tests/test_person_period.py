@@ -47,6 +47,7 @@ def test_weekly_grid_is_contiguous_active_only():
 
 def test_cumulative_minutes_are_causal():
     games = [
+        {"date": date(2020, 1, 5), "min": 15, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 6), "min": 20, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 13), "min": 30, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 20), "min": 10, "pts": 0, "reb": 0, "fta": 0},
@@ -88,9 +89,9 @@ def test_workload_features_are_strictly_pre_week():
     assert jan13["games_prior_14d"] == 2
     assert jan13["minutes_prior_14d"] == 50
     assert jan13["days_since_last_game"] == 6
-    assert jan13["back_to_backs_prior_7d"] == 1
+    assert jan13["back_to_backs_prior_7d"] == 2
     # Legacy cumulative feature retains its through-week meaning.
-    assert jan13["cum_season_minutes"] == 90
+    assert jan13["cum_season_minutes"] == 105
     # New prior-window features exclude the 40 minutes from prediction week.
 
 
