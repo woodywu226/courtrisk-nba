@@ -288,6 +288,12 @@ def run(report_json: str | None = None) -> dict:
         print(f"{m.model:<20}{m.auc_pr:>9.4f}{m.roc_auc:>9.4f}"
               f"{m.brier:>9.4f}{m.auc_pr_lift_vs_constant:>11.2f}")
     print("=" * 70)
+    print("\nWORKLOAD ABLATION — same temporal holdout, pre-week features only")
+    wc = out["workload_comparison"]
+    print(f"{'model':<24}{'AUC-PR':>9}{'ROC-AUC':>9}{'Brier':>9}")
+    for item in wc["models"]:
+        print(f"{item['model']:<24}{item['auc_pr']:>9.4f}"
+              f"{item['roc_auc']:>9.4f}{item['brier']:>9.4f}")
 
     if report_json:
         from nba_injury.cache import _PKG_ROOT  # repo root
