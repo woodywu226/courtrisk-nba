@@ -47,7 +47,6 @@ def test_weekly_grid_is_contiguous_active_only():
 
 def test_cumulative_minutes_are_causal():
     games = [
-        {"date": date(2020, 1, 5), "min": 15, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 6), "min": 20, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 13), "min": 30, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 20), "min": 10, "pts": 0, "reb": 0, "fta": 0},
@@ -72,6 +71,7 @@ def test_cumulative_minutes_are_causal():
 
 def test_workload_features_are_strictly_pre_week():
     games = [
+        {"date": date(2020, 1, 5), "min": 15, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 6), "min": 20, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 7), "min": 30, "pts": 0, "reb": 0, "fta": 0},
         {"date": date(2020, 1, 13), "min": 40, "pts": 0, "reb": 0, "fta": 0},
