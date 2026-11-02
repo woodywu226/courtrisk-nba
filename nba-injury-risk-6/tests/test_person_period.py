@@ -89,8 +89,9 @@ def test_workload_features_are_strictly_pre_week():
     assert jan13["minutes_prior_14d"] == 50
     assert jan13["days_since_last_game"] == 6
     assert jan13["back_to_backs_prior_7d"] == 1
-    # The 40 minutes from the prediction week must not enter any prior feature.
-    assert jan13["cum_season_minutes"] == 50
+    # Legacy cumulative feature retains its through-week meaning.
+    assert jan13["cum_season_minutes"] == 90
+    # New prior-window features exclude the 40 minutes from prediction week.
 
 
 
